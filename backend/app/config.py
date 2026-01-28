@@ -8,6 +8,7 @@ load_dotenv()
 TMDB_API_KEY = os.getenv("TMDB_API_KEY", "")
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_IMG_BASE = "https://image.tmdb.org/t/p/"
+TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p"
 TMDB_RATE_LIMIT = int(os.getenv("TMDB_RATE_LIMIT", "50"))
 
 # Cache
@@ -21,6 +22,14 @@ POSTER_SIZE = os.getenv("POSTER_SIZE", "w185")
 TOP_ACTORS_COUNT = int(os.getenv("TOP_ACTORS_COUNT", "20"))
 TOP_DIRECTORS_COUNT = int(os.getenv("TOP_DIRECTORS_COUNT", "15"))
 TOP_GENRES_COUNT = int(os.getenv("TOP_GENRES_COUNT", "10"))
+TOP_COUNTRIES_COUNT = int(os.getenv("TOP_COUNTRIES_COUNT", "10"))
+TOP_LANGUAGES_COUNT = int(os.getenv("TOP_LANGUAGES_COUNT", "10"))
+
+# Chart colors
+CHART_COLORS = [
+    '#00d4ff', '#a855f7', '#ec4899', '#fbbf24', '#22c55e',
+    '#f97316', '#ef4444', '#6366f1', '#14b8a6', '#f43f5e'
+]
 
 # Web app settings
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000,https://letterboxd-stats-two.vercel.app").split(",")
