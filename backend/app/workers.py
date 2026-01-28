@@ -12,7 +12,7 @@ jobs: Dict[str, JobState] = {}
 executor = ThreadPoolExecutor(max_workers=2)
 
 
-def _run_pipeline(job: JobState, shared_cache: dict, on_cache_dirty: Callable):
+def _run_pipeline(job: JobState, shared_cache: dict, on_cache_dirty: Callable, on_force_save: Callable = None):
     """Run the full pipeline synchronously."""
     from app.pipeline.data_loader import load_all_data
     from app.pipeline.tmdb_enricher import TMDBEnricher
@@ -44,13 +44,17 @@ def _run_pipeline(job: JobState, shared_cache: dict, on_cache_dirty: Callable):
 
         enricher = TMDBEnricher(
             shared_cache=shared_cache,
-            on_progress=on_enrich_progress
+            on_progress=on_enrich_progress,
+            on_cache_dirty=on_cache_dirty
         )
         enriched_films = enricher.enrich_films(data['watched'], data.get('diary'))
 
-        # Notify cache manager if new entries
-        if enricher.get_new_cache_count() > 0:
-            on_cache_dirty()
+        # Save cache immediately after enrichment
+        new_count = enricher.get_new_cache_count()
+        if new_count > 0:
+            on_cache_dirty(new_count)
+        if on_force_save:
+            on_force_save()
 
         job.percent = 70
 
@@ -101,6 +105,12 @@ def _run_pipeline(job: JobState, shared_cache: dict, on_cache_dirty: Callable):
         traceback.print_exc()
 
     finally:
+        # Always save cache before cleanup
+        try:
+            if on_force_save:
+                on_force_save()
+        except:
+            pass
         # Cleanup temp directory
         try:
             shutil.rmtree(job.data_dir, ignore_errors=True)
@@ -108,7 +118,7 @@ def _run_pipeline(job: JobState, shared_cache: dict, on_cache_dirty: Callable):
             pass
 
 
-async def start_pipeline(job: JobState, shared_cache: dict, on_cache_dirty: Callable):
+async def start_pipeline(job: JobState, shared_cache: dict, on_cache_dirty: Callable, on_force_save: Callable = None):
     """Start pipeline in background thread."""
     loop = asyncio.get_event_loop()
-    loop.run_in_executor(executor, _run_pipeline, job, shared_cache, on_cache_dirty)
+    loop.run_in_executor(executor, _run_pipeline, job, shared_cache, on_cache_dirty, on_force_save)

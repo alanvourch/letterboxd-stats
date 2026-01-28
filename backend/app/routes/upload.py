@@ -16,7 +16,7 @@ router = APIRouter()
 async def upload_zip(zip_file: UploadFile = File(...)):
     """Upload a Letterboxd export ZIP file."""
     # Import here to avoid circular import
-    from app.main import get_shared_cache, notify_cache_dirty
+    from app.main import get_shared_cache, notify_cache_dirty, force_save_cache
 
     # Validate file size
     content = await zip_file.read()
@@ -57,6 +57,6 @@ async def upload_zip(zip_file: UploadFile = File(...)):
     jobs[job_id] = job
 
     # Start pipeline
-    await start_pipeline(job, get_shared_cache(), notify_cache_dirty)
+    await start_pipeline(job, get_shared_cache(), notify_cache_dirty, force_save_cache)
 
     return UploadResponse(job_id=job_id)

@@ -45,13 +45,18 @@ class TMDBCache:
             except Exception as e:
                 print(f"Failed to save cache: {e}")
 
-    def mark_dirty(self):
+    def mark_dirty(self, new_count: int = 1):
         """Mark cache as dirty and maybe auto-save."""
         self._dirty = True
-        self._new_entries += 1
-        # Auto-save every 100 entries or 5 minutes
-        if self._new_entries >= 100 or (time.time() - self._last_save) > 300:
+        self._new_entries += new_count
+        # Auto-save every 50 entries or 2 minutes
+        if self._new_entries >= 50 or (time.time() - self._last_save) > 120:
             self.save()
+
+    def force_save(self):
+        """Force save regardless of dirty state."""
+        self._dirty = True
+        self.save()
 
     def get_data(self) -> Dict[str, Any]:
         """Get reference to cache dict for enricher."""

@@ -56,9 +56,14 @@ def get_shared_cache() -> dict:
     return _cache.get_data()
 
 
-def notify_cache_dirty():
+def notify_cache_dirty(new_count: int = 1):
     """Notify cache manager of changes."""
-    _cache.mark_dirty()
+    _cache.mark_dirty(new_count)
+
+def force_save_cache():
+    """Force save cache to disk."""
+    if _cache:
+        _cache.force_save()
 
 
 def get_cache_size() -> int:
