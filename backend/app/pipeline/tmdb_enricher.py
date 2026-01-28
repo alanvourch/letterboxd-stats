@@ -272,25 +272,40 @@ class TMDBEnricher:
         return enriched
 
     def _backfill_studio_logos(self, enriched: Dict):
-        """Backfill logo_path for production_companies missing logos."""
+        """Backfill logo_path for the most frequent production companies only."""
         try:
+            from collections import Counter
+
+            # Count studio frequency and find which ones need logos
+            studio_freq = Counter()
             needs_logo = set()
             for data in enriched.values():
                 for comp in data.get('production_companies', []):
                     if isinstance(comp, str):
+                        studio_freq[comp] += 1
                         needs_logo.add(comp)
-                    elif isinstance(comp, dict) and not comp.get('logo_path'):
-                        needs_logo.add(comp['name'])
+                    elif isinstance(comp, dict):
+                        name = comp['name']
+                        studio_freq[name] += 1
+                        if not comp.get('logo_path'):
+                            needs_logo.add(name)
 
             if not needs_logo:
                 return
 
-            total = len(needs_logo)
+            # Only fetch logos for top 30 most frequent studios (dashboard only shows top 10)
+            top_studios = {name for name, _ in studio_freq.most_common(30)}
+            to_fetch = needs_logo & top_studios
+
+            if not to_fetch:
+                return
+
+            total = len(to_fetch)
             if self.on_progress:
-                self.on_progress(f"Backfilling logos for {total} studios...", 95)
+                self.on_progress(f"Fetching logos for {total} top studios...", 95)
 
             logo_map = {}
-            for i, name in enumerate(needs_logo):
+            for i, name in enumerate(to_fetch):
                 try:
                     result = self._make_request('search/company', {'query': name})
                     if result and result.get('results'):
@@ -301,14 +316,13 @@ class TMDBEnricher:
                 except Exception:
                     pass
 
-                if self.on_progress and (i + 1) % 20 == 0:
-                    pct = 95 + (i + 1) / total * 5
-                    self.on_progress(f"Studio logos ({i + 1}/{total})...", min(pct, 99))
+                if self.on_progress and (i + 1) % 10 == 0:
+                    self.on_progress(f"Studio logos ({i + 1}/{total})...", min(95 + (i + 1) / total * 5, 99))
 
             if not logo_map:
                 return
 
-            for data in list(enriched.values()) + list(self.cache.values()):
+            for data in list(enriched.values()):
                 companies = data.get('production_companies', [])
                 new_companies = []
                 changed = False
