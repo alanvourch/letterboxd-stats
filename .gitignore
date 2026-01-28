@@ -1,5 +1,7 @@
 # Environment files
 .env
+backend/.env
+frontend/.env
 .env.local
 .env.development
 .env.development.local
