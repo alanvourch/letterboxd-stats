@@ -12,10 +12,10 @@ jobs: Dict[str, JobState] = {}
 executor = ThreadPoolExecutor(max_workers=2)
 
 
-def _run_pipeline(job: JobState, shared_cache: dict, on_cache_dirty: Callable, on_force_save: Callable = None):
+def _run_pipeline(job: JobState):
     """Run the full pipeline synchronously."""
     from app.pipeline.data_loader import load_all_data
-    from app.pipeline.tmdb_enricher import TMDBEnricher
+    from app.pipeline.supabase_enricher import SupabaseEnricher
     from app.pipeline.stats_calculator import StatsCalculator
     from app.pipeline.chart_generator import ChartGenerator
     from app.pipeline.html_generator import HTMLGenerator
@@ -33,28 +33,17 @@ def _run_pipeline(job: JobState, shared_cache: dict, on_cache_dirty: Callable, o
         data = load_all_data(job.data_dir, on_progress=on_load_progress)
         job.percent = 20
 
-        # Step 2: Enrich with TMDB (20-70%)
+        # Step 2: Enrich with Supabase + TMDB fallback (20-70%)
         job.status = JobStatus.ENRICHING
-        job.message = "Fetching TMDB metadata..."
+        job.message = "Looking up film metadata..."
 
         def on_enrich_progress(msg: str, pct: float):
             job.message = msg
             # Map 0-100 to 20-70
             job.percent = int(20 + pct * 0.5)
 
-        enricher = TMDBEnricher(
-            shared_cache=shared_cache,
-            on_progress=on_enrich_progress,
-            on_cache_dirty=on_cache_dirty
-        )
+        enricher = SupabaseEnricher(on_progress=on_enrich_progress)
         enriched_films = enricher.enrich_films(data['watched'], data.get('diary'))
-
-        # Save cache immediately after enrichment
-        new_count = enricher.get_new_cache_count()
-        if new_count > 0:
-            on_cache_dirty(new_count)
-        if on_force_save:
-            on_force_save()
 
         job.percent = 70
 
@@ -105,12 +94,6 @@ def _run_pipeline(job: JobState, shared_cache: dict, on_cache_dirty: Callable, o
         traceback.print_exc()
 
     finally:
-        # Always save cache before cleanup
-        try:
-            if on_force_save:
-                on_force_save()
-        except:
-            pass
         # Cleanup temp directory
         try:
             shutil.rmtree(job.data_dir, ignore_errors=True)
@@ -118,7 +101,7 @@ def _run_pipeline(job: JobState, shared_cache: dict, on_cache_dirty: Callable, o
             pass
 
 
-async def start_pipeline(job: JobState, shared_cache: dict, on_cache_dirty: Callable, on_force_save: Callable = None):
+async def start_pipeline(job: JobState):
     """Start pipeline in background thread."""
     loop = asyncio.get_event_loop()
-    loop.run_in_executor(executor, _run_pipeline, job, shared_cache, on_cache_dirty, on_force_save)
+    loop.run_in_executor(executor, _run_pipeline, job)
