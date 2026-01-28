@@ -1,6 +1,8 @@
 """Supabase-first enricher: bulk lookup from Supabase, TMDB fallback for misses."""
+import json
 import requests
 import time
+import urllib.parse
 from typing import Dict, List, Optional, Tuple, Callable
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -56,8 +58,13 @@ class SupabaseEnricher:
         countries_str = row.get('production_countries') or ''
         production_countries = [c.strip() for c in countries_str.split(',') if c.strip()]
 
-        # Parse cast_details (already JSON array in Supabase)
+        # Parse cast_details (may be JSON array or JSON string)
         cast_details = row.get('cast_details') or []
+        if isinstance(cast_details, str):
+            try:
+                cast_details = json.loads(cast_details)
+            except (json.JSONDecodeError, TypeError):
+                cast_details = []
         actors = [
             {'name': a['name'], 'character': a.get('character', ''), 'profile_path': a.get('profile_path')}
             for a in cast_details[:10]
@@ -108,19 +115,14 @@ class SupabaseEnricher:
 
     def _query_supabase_batch(self, titles: List[str]) -> List[Dict]:
         """Query Supabase for a batch of titles."""
-        # Use the `in` filter on title
-        # Need to escape titles for the filter
-        escaped = ','.join(f'"{t}"' for t in titles)
-        params = {
-            'select': '*',
-            'title': f'in.({escaped})',
-        }
+        # Build URL manually to avoid requests encoding commas in the in.() filter
+        # PostgREST needs: ?title=in.("Title 1","Title 2")
+        escaped_titles = ','.join(f'"{t}"' for t in titles)
+        filter_value = f'in.({escaped_titles})'
+        # Encode only the filter value, preserving PostgREST syntax
+        url = f'{self.supabase_url}/rest/v1/movies?select=*&title={urllib.parse.quote(filter_value, safe="().,\"")}'
         try:
-            resp = self.supabase_session.get(
-                f'{self.supabase_url}/rest/v1/movies',
-                params=params,
-                timeout=15
-            )
+            resp = self.supabase_session.get(url, timeout=30)
             resp.raise_for_status()
             return resp.json()
         except Exception as e:
