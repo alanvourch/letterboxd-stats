@@ -25,3 +25,31 @@ service-account*.json
 # API keys
 *.apikey
 api-keys.json
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cache
+*.cache
+.cache/
+tmdb_cache.json
