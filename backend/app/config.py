@@ -23,7 +23,7 @@ TOP_DIRECTORS_COUNT = int(os.getenv("TOP_DIRECTORS_COUNT", "15"))
 TOP_GENRES_COUNT = int(os.getenv("TOP_GENRES_COUNT", "10"))
 
 # Web app settings
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000,https://letterboxd-stats-two.vercel.app").split(",")
 MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "10"))
 JOB_EXPIRY_MINUTES = int(os.getenv("JOB_EXPIRY_MINUTES", "60"))
 RATE_LIMIT = os.getenv("RATE_LIMIT", "5/hour")
