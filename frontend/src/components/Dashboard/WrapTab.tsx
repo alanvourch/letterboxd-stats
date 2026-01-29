@@ -103,7 +103,7 @@ export default function WrapTab({ stats, year }: WrapTabProps) {
         {topRated.length > 0 && (
           <div className="bg-bg-card rounded-xl p-6">
             <h3 className="text-lg font-semibold mb-4">Highest Rated</h3>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {topRated.slice(0, 8).map((film, i) => (
                 <PosterCard key={i} film={film} size="sm" />
               ))}
@@ -113,7 +113,7 @@ export default function WrapTab({ stats, year }: WrapTabProps) {
         {bottomRated.length > 0 && (
           <div className="bg-bg-card rounded-xl p-6">
             <h3 className="text-lg font-semibold mb-4">Lowest Rated</h3>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {bottomRated.slice(0, 8).map((film, i) => (
                 <PosterCard key={i} film={film} size="sm" />
               ))}

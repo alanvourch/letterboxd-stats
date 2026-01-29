@@ -16,6 +16,7 @@ class SupabaseEnricher:
     def __init__(self, on_progress: Callable = None):
         self.on_progress = on_progress
         self._new_cache_entries = 0
+        self._tmdb_fallback_films: List[Dict] = []  # Track films not in Supabase
 
         # Supabase config
         self.supabase_url = config.SUPABASE_URL
@@ -41,6 +42,10 @@ class SupabaseEnricher:
 
     def get_new_cache_count(self) -> int:
         return self._new_cache_entries
+
+    def get_tmdb_fallback_films(self) -> List[Dict]:
+        """Return list of films that were not in Supabase and needed TMDB fallback."""
+        return self._tmdb_fallback_films
 
     def _transform_supabase_row(self, row: Dict) -> Dict:
         """Transform a Supabase movie row into the enricher output format."""
@@ -278,6 +283,9 @@ class SupabaseEnricher:
                 supabase_hits += 1
             else:
                 tmdb_needed.append((title, year))
+
+        # Store the list of films needing TMDB fallback
+        self._tmdb_fallback_films = [{'title': t, 'year': y} for t, y in tmdb_needed]
 
         if self.on_progress:
             self.on_progress(f"{supabase_hits} found in database, {len(tmdb_needed)} need TMDB lookup", 65)

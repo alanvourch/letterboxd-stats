@@ -49,3 +49,21 @@ async def get_result_html(job_id: str):
             "Content-Disposition": "attachment; filename=letterboxd_stats.html"
         }
     )
+
+
+@router.get("/result/{job_id}/missing")
+async def get_missing_films(job_id: str):
+    """Get list of films not found in Supabase (needed TMDB fallback)."""
+    if job_id not in jobs:
+        raise HTTPException(404, "Job not found")
+
+    job = jobs[job_id]
+
+    if job.status != JobStatus.COMPLETE:
+        raise HTTPException(400, "Job not complete")
+
+    films = json.loads(job.tmdb_fallback_films) if job.tmdb_fallback_films else []
+    return JSONResponse({
+        "count": len(films),
+        "films": films
+    })

@@ -26,6 +26,7 @@ class JobState:
         self.stats_json: Optional[str] = None
         self.charts_json: Optional[str] = None
         self.html: Optional[str] = None
+        self.tmdb_fallback_films: Optional[str] = None  # JSON list of films not in Supabase
 
 
 class UploadResponse(BaseModel):

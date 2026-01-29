@@ -7,7 +7,7 @@ interface InsightsTabProps {
 
 export default function InsightsTab({ stats, charts }: InsightsTabProps) {
   const runtime = (stats.runtime || {}) as Record<string, unknown>
-  const geography = (stats.geography || {}) as Record<string, unknown>
+
 
   return (
     <div className="space-y-8">
@@ -65,22 +65,6 @@ export default function InsightsTab({ stats, charts }: InsightsTabProps) {
         </div>
       </div>
 
-      {/* Top Languages */}
-      <section className="bg-bg-card rounded-xl p-6">
-        <h2 className="text-xl font-bold mb-4">Top Languages</h2>
-        <div className="flex flex-wrap gap-2">
-          {((geography.top_languages || []) as Array<{ language: string; count: number }>)
-            .slice(0, 10)
-            .map((lang) => (
-              <span
-                key={lang.language}
-                className="px-3 py-1 bg-bg-hover rounded-full text-sm"
-              >
-                {lang.language}: {lang.count}
-              </span>
-            ))}
-        </div>
-      </section>
     </div>
   )
 }

@@ -36,7 +36,7 @@ export default function OverviewTab({ stats, charts }: OverviewTabProps) {
       <section className="grid md:grid-cols-2 gap-6">
         <div className="bg-bg-card rounded-xl p-6">
           <h3 className="text-lg font-semibold mb-4">Genres: Watched vs Liked</h3>
-          <ChartWrapper config={charts.genres as string} type="bar" />
+          <ChartWrapper config={(charts.genres_watched_vs_liked || charts.genres) as string} type="bar" />
         </div>
         <div className="bg-bg-card rounded-xl p-6">
           <h3 className="text-lg font-semibold mb-4">Runtime Distribution</h3>

@@ -141,12 +141,12 @@ export default function JourneyTab({ stats }: JourneyTabProps) {
       {mostRewatched.length > 0 && (
         <section>
           <h2 className="text-2xl font-bold mb-4">Most Rewatched</h2>
-          <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
+          <div className="flex flex-wrap gap-1.5">
             {mostRewatched.slice(0, 10).map((film, i) => (
-              <div key={i} className="text-center">
-                <PosterCard film={film} size="md" />
-                <p className="text-sm font-medium mt-2 truncate">{film.title}</p>
-                <p className="text-text-secondary text-sm">{film.rewatch_count}x watched</p>
+              <div key={i} className="text-center w-[90px]">
+                <PosterCard film={film} size="sm" />
+                <p className="text-xs font-medium mt-1 truncate">{film.title}</p>
+                <p className="text-text-secondary text-xs">{film.rewatch_count}x</p>
               </div>
             ))}
           </div>
@@ -157,9 +157,9 @@ export default function JourneyTab({ stats }: JourneyTabProps) {
       {fiveStars.length > 0 && (
         <section>
           <h2 className="text-2xl font-bold mb-4">5-Star Wall ({fiveStars.length} films)</h2>
-          <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
+          <div className="flex flex-wrap gap-1">
             {fiveStars.map((film, i) => (
-              <PosterCard key={i} film={film} size="sm" />
+              <PosterCard key={i} film={film} size="xs" />
             ))}
           </div>
         </section>

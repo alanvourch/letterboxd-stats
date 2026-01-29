@@ -45,6 +45,9 @@ def _run_pipeline(job: JobState):
         enricher = SupabaseEnricher(on_progress=on_enrich_progress)
         enriched_films = enricher.enrich_films(data['watched'], data.get('diary'))
 
+        # Store TMDB fallback list for user to see what's missing from Supabase
+        job.tmdb_fallback_films = json.dumps(enricher.get_tmdb_fallback_films())
+
         job.percent = 70
 
         # Step 3: Calculate stats (70-85%)

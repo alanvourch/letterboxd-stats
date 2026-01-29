@@ -600,66 +600,52 @@ class StatsCalculator:
         most_active_month = int(month_counts.idxmax()) if not month_counts.empty else 0
         most_active_month_count = int(month_counts.max()) if not month_counts.empty else 0
 
-        # Top actor and director for this year
+        # Single pass: count actors, directors, genres AND build film lists
         actor_counts = Counter()
         director_counts = Counter()
         genre_counts = Counter()
+        actor_year_films = defaultdict(list)
+        director_year_films = defaultdict(list)
 
         for _, row in year_diary.iterrows():
             title, yr = row['Name'], int(row['Year']) if pd.notna(row['Year']) else 0
             metadata = self.tmdb_data.get((title, yr), {})
+            film_info = {
+                'title': title, 'year': yr,
+                'poster_path': metadata.get('poster_path'),
+                'rating': float(row['Rating']) if pd.notna(row['Rating']) else None
+            }
 
             for actor_info in metadata.get('actors', []):
-                actor_counts[actor_info['name']] += 1
+                name = actor_info['name']
+                actor_counts[name] += 1
+                actor_year_films[name].append(film_info)
 
             for director in metadata.get('directors', []):
                 director_counts[director] += 1
+                director_year_films[director].append(film_info)
 
             for genre in metadata.get('genres', []):
                 genre_counts[genre] += 1
 
-        # Get top actor with films
+        # Get top actor with films (already built)
         top_actor = None
         if actor_counts:
             top_actor_name, top_actor_count = actor_counts.most_common(1)[0]
-            # Get films for this actor in this year
-            actor_year_films = []
-            for _, row in year_diary.iterrows():
-                title, yr = row['Name'], int(row['Year']) if pd.notna(row['Year']) else 0
-                metadata = self.tmdb_data.get((title, yr), {})
-                actor_names = [a['name'] for a in metadata.get('actors', [])]
-                if top_actor_name in actor_names:
-                    actor_year_films.append({
-                        'title': title,
-                        'year': yr,
-                        'poster_path': metadata.get('poster_path'),
-                        'rating': float(row['Rating']) if pd.notna(row['Rating']) else None
-                    })
             top_actor = {
                 'name': top_actor_name,
                 'count': top_actor_count,
-                'films': actor_year_films[:10]  # Limit to 10 for display
+                'films': actor_year_films[top_actor_name][:10]
             }
 
-        # Get top director with films
+        # Get top director with films (already built)
         top_director = None
         if director_counts:
             top_director_name, top_director_count = director_counts.most_common(1)[0]
-            director_year_films = []
-            for _, row in year_diary.iterrows():
-                title, yr = row['Name'], int(row['Year']) if pd.notna(row['Year']) else 0
-                metadata = self.tmdb_data.get((title, yr), {})
-                if top_director_name in metadata.get('directors', []):
-                    director_year_films.append({
-                        'title': title,
-                        'year': yr,
-                        'poster_path': metadata.get('poster_path'),
-                        'rating': float(row['Rating']) if pd.notna(row['Rating']) else None
-                    })
             top_director = {
                 'name': top_director_name,
                 'count': top_director_count,
-                'films': director_year_films
+                'films': director_year_films[top_director_name]
             }
 
         # Genre distribution for this year
@@ -717,74 +703,49 @@ class StatsCalculator:
             }
             return
 
-        # Count actors, directors, genres in liked films only
+        # Single pass: count and build film lists per actor/director
         actor_counts = Counter()
         director_counts = Counter()
         genre_counts = Counter()
+        actor_films = defaultdict(list)
+        director_films = defaultdict(list)
 
         for _, row in liked_films.iterrows():
             title = row['Name']
             year = int(row['Year']) if pd.notna(row['Year']) else 0
             metadata = self.tmdb_data.get((title, year), {})
+            rating = self._get_film_rating(title, year)
+            film_info = {
+                'title': title, 'year': year,
+                'poster_path': metadata.get('poster_path'),
+                'rating': rating if rating else None
+            }
 
             for actor_info in metadata.get('actors', []):
-                actor_counts[actor_info['name']] += 1
+                name = actor_info['name']
+                actor_counts[name] += 1
+                actor_films[name].append(film_info)
 
             for director in metadata.get('directors', []):
                 director_counts[director] += 1
+                director_films[director].append(film_info)
 
             for genre in metadata.get('genres', []):
                 genre_counts[genre] += 1
 
-        # Top actors by liked films
-        top_liked_actors = []
-        for actor_name, count in actor_counts.most_common(15):
-            # Get films for this actor that are liked
-            liked_actor_films = []
-            for _, row in liked_films.iterrows():
-                title = row['Name']
-                year = int(row['Year']) if pd.notna(row['Year']) else 0
-                metadata = self.tmdb_data.get((title, year), {})
-                actor_names = [a['name'] for a in metadata.get('actors', [])]
-                if actor_name in actor_names:
-                    rating = self._get_film_rating(title, year)
-                    liked_actor_films.append({
-                        'title': title,
-                        'year': year,
-                        'poster_path': metadata.get('poster_path'),
-                        'rating': rating if rating else None
-                    })
+        # Build top lists directly from pre-built mappings
+        top_liked_actors = [
+            {'name': name, 'count': count,
+             'films': sorted(actor_films[name], key=lambda x: x['year'], reverse=True)}
+            for name, count in actor_counts.most_common(15)
+        ]
 
-            top_liked_actors.append({
-                'name': actor_name,
-                'count': count,
-                'films': sorted(liked_actor_films, key=lambda x: x['year'], reverse=True)
-            })
+        top_liked_directors = [
+            {'name': name, 'count': count,
+             'films': sorted(director_films[name], key=lambda x: x['year'], reverse=True)}
+            for name, count in director_counts.most_common(15)
+        ]
 
-        # Top directors by liked films
-        top_liked_directors = []
-        for director_name, count in director_counts.most_common(15):
-            liked_director_films = []
-            for _, row in liked_films.iterrows():
-                title = row['Name']
-                year = int(row['Year']) if pd.notna(row['Year']) else 0
-                metadata = self.tmdb_data.get((title, year), {})
-                if director_name in metadata.get('directors', []):
-                    rating = self._get_film_rating(title, year)
-                    liked_director_films.append({
-                        'title': title,
-                        'year': year,
-                        'poster_path': metadata.get('poster_path'),
-                        'rating': rating if rating else None
-                    })
-
-            top_liked_directors.append({
-                'name': director_name,
-                'count': count,
-                'films': sorted(liked_director_films, key=lambda x: x['year'], reverse=True)
-            })
-
-        # Top genres in liked films
         top_liked_genres = [{'genre': g, 'count': c} for g, c in genre_counts.most_common(10)]
 
         self.stats['liked'] = {
