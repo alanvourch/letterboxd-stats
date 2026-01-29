@@ -38,12 +38,12 @@ export default function PeopleTab({ stats }: PeopleTabProps) {
   const [activeTab, setActiveTab] = useState('Actors')
   const [selectedPerson, setSelectedPerson] = useState<Person | Studio | null>(null)
 
-  const actors = (stats.actors || []) as Person[]
-  const directors = (stats.directors || []) as Person[]
-  const composers = ((stats as Record<string, unknown>).composers || []) as Person[]
-  const cinematographers = ((stats as Record<string, unknown>).cinematographers || []) as Person[]
-  const writers = ((stats as Record<string, unknown>).writers || []) as Person[]
-  const studios = ((stats as Record<string, unknown>).studios || []) as Studio[]
+  const actors = ((stats.actors as Record<string, unknown>)?.top_by_count || []) as Person[]
+  const directors = ((stats.directors as Record<string, unknown>)?.top_by_count || []) as Person[]
+  const composers = ((stats.composers as Record<string, unknown>)?.top_by_count || []) as Person[]
+  const cinematographers = ((stats.cinematographers as Record<string, unknown>)?.top_by_count || []) as Person[]
+  const writers = ((stats.writers as Record<string, unknown>)?.top_by_count || []) as Person[]
+  const studios = ((stats.studios as Record<string, unknown>)?.top_by_count || []) as Studio[]
 
   const getData = () => {
     switch (activeTab) {

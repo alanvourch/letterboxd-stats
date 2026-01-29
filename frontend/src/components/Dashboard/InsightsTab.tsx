@@ -23,19 +23,19 @@ export default function InsightsTab({ stats, charts }: InsightsTabProps) {
           </div>
           <div className="text-center">
             <p className="text-3xl font-bold text-accent-purple">
-              {String(runtime.average_runtime || 0)}
+              {String(runtime.average || 0)}
             </p>
             <p className="text-text-secondary">Avg Runtime (min)</p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-accent-green">
-              {(runtime.shortest_film as Record<string, string>)?.title || 'N/A'}
+              {(runtime.shortest as Record<string, string>)?.title || 'N/A'}
             </p>
             <p className="text-text-secondary">Shortest Film</p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-accent-yellow">
-              {(runtime.longest_film as Record<string, string>)?.title || 'N/A'}
+              {(runtime.longest as Record<string, string>)?.title || 'N/A'}
             </p>
             <p className="text-text-secondary">Longest Film</p>
           </div>

@@ -16,7 +16,7 @@ export default function OverviewTab({ stats, charts }: OverviewTabProps) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard label="Films Watched" value={basic.total_watched || 0} color="cyan" />
           <StatCard label="Films Rated" value={basic.total_rated || 0} color="purple" />
-          <StatCard label="Average Rating" value={(basic.average_rating || 0).toFixed(1)} color="yellow" />
+          <StatCard label="Average Rating" value={(basic.avg_rating || 0).toFixed(1)} color="yellow" />
           <StatCard label="Films Liked" value={basic.total_liked || 0} color="pink" />
         </div>
       </section>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { useJobStatus } from '../hooks/useJobStatus'
 import { getResultJson, getDownloadUrl } from '../lib/api'
@@ -11,8 +11,6 @@ import WrapTab from '../components/Dashboard/WrapTab'
 import DecadesTab from '../components/Dashboard/DecadesTab'
 import PeopleTab from '../components/Dashboard/PeopleTab'
 import InsightsTab from '../components/Dashboard/InsightsTab'
-
-const TABS = ['Overview', 'Journey', 'Wrap', 'Live', 'Decades', 'People', 'Insights']
 
 export default function DashboardPage() {
   const { jobId } = useParams<{ jobId: string }>()
@@ -30,6 +28,23 @@ export default function DashboardPage() {
       })
     }
   }, [status, jobId])
+
+  // Build dynamic tab labels from data
+  const tabs = useMemo(() => {
+    if (!data) return ['Overview', 'Journey', 'Wrap', 'Live', 'Decades', 'People', 'Insights']
+    const breakdown = (data.stats.yearly_breakdown || {}) as Record<string, unknown>
+    const lastYear = breakdown.last_full_year_value as number
+    const currentYear = breakdown.current_year_value as number
+    return [
+      'Overview',
+      'Journey',
+      lastYear ? `${lastYear} Wrap` : 'Wrap',
+      currentYear ? `${currentYear} Live` : 'Live',
+      'Decades',
+      'People',
+      'Insights'
+    ]
+  }, [data])
 
   // Show progress while processing
   if (status !== 'complete') {
@@ -59,24 +74,14 @@ export default function DashboardPage() {
   }
 
   const renderTab = () => {
-    switch (activeTab) {
-      case 'Overview':
-        return <OverviewTab stats={data.stats} charts={data.charts} />
-      case 'Journey':
-        return <JourneyTab stats={data.stats} />
-      case 'Wrap':
-        return <WrapTab stats={data.stats} year="previous" />
-      case 'Live':
-        return <WrapTab stats={data.stats} year="current" />
-      case 'Decades':
-        return <DecadesTab stats={data.stats} charts={data.charts} />
-      case 'People':
-        return <PeopleTab stats={data.stats} />
-      case 'Insights':
-        return <InsightsTab stats={data.stats} charts={data.charts} />
-      default:
-        return null
-    }
+    if (activeTab === 'Overview') return <OverviewTab stats={data.stats} charts={data.charts} />
+    if (activeTab === 'Journey') return <JourneyTab stats={data.stats} />
+    if (activeTab.includes('Wrap')) return <WrapTab stats={data.stats} year="previous" />
+    if (activeTab.includes('Live')) return <WrapTab stats={data.stats} year="current" />
+    if (activeTab === 'Decades') return <DecadesTab stats={data.stats} charts={data.charts} />
+    if (activeTab === 'People') return <PeopleTab stats={data.stats} />
+    if (activeTab === 'Insights') return <InsightsTab stats={data.stats} charts={data.charts} />
+    return null
   }
 
   return (
@@ -89,7 +94,7 @@ export default function DashboardPage() {
           </h1>
           <DownloadButton url={getDownloadUrl(jobId!)} />
         </div>
-        <TabNav tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
+        <TabNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
       </header>
 
       {/* Content */}

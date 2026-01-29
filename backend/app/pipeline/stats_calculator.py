@@ -15,9 +15,10 @@ class StatsCalculator:
         self.lb_data = letterboxd_data
         self.tmdb_data = tmdb_data
         self.stats = {}
-        # Build lookup sets for fast checking
+        # Build lookup sets/dicts for fast checking
         self._build_liked_lookup()
         self._build_watched_lookup()
+        self._build_rating_lookup()
 
     def _build_liked_lookup(self):
         """Build a set of liked films for fast lookup"""
@@ -34,6 +35,15 @@ class StatsCalculator:
         if not watched.empty:
             for _, row in watched.iterrows():
                 self.watched_set.add((row['Name'], int(row['Year']) if pd.notna(row['Year']) else 0))
+
+    def _build_rating_lookup(self):
+        """Build a dict of (title, year) -> rating for O(1) lookup"""
+        ratings = self.lb_data.get('ratings', pd.DataFrame())
+        self.rating_dict = {}
+        if not ratings.empty:
+            for _, row in ratings.iterrows():
+                key = (row['Name'], int(row['Year']) if pd.notna(row['Year']) else 0)
+                self.rating_dict[key] = float(row['Rating'])
 
     def is_film_watched(self, title: str, year: int) -> bool:
         """Check if a film is in the watched list (not just watchlist)"""
@@ -484,18 +494,8 @@ class StatsCalculator:
         }
 
     def _get_film_rating(self, title: str, year: int) -> float:
-        """Get user rating for a specific film"""
-        ratings = self.lb_data.get('ratings', pd.DataFrame())
-
-        if ratings.empty:
-            return 0
-
-        match = ratings[(ratings['Name'] == title) & (ratings['Year'] == year)]
-
-        if not match.empty:
-            return float(match.iloc[0]['Rating'])
-
-        return 0
+        """Get user rating for a specific film (O(1) dict lookup)"""
+        return self.rating_dict.get((title, year), 0)
 
     def get_top_rated_films(self, count: int = 20) -> List[Dict]:
         """Get top rated films (5 stars)"""
