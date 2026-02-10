@@ -15,6 +15,11 @@ from app import config
 class SupabaseEnricher:
     """Enriches film data using Supabase as primary source, TMDB as fallback."""
 
+    # Set to True to re-enable TMDB fallback for films not found in Supabase.
+    # Disabled by default: ~90% of misses are TV shows/shorts not in the database,
+    # and TMDB calls dominate processing time.
+    TMDB_FALLBACK_ENABLED = False
+
     def __init__(self, on_progress: Callable = None):
         self.on_progress = on_progress
         self._new_cache_entries = 0
@@ -45,7 +50,19 @@ class SupabaseEnricher:
 
     @staticmethod
     def _normalize_title(title: str) -> str:
-        """Normalize a title for fuzzy matching."""
+        """Normalize a title for fuzzy matching.
+
+        Handles mojibake (â€" → –) common in Letterboxd CSV exports where UTF-8
+        bytes were mis-decoded as Windows-1252, plus Unicode accents and punctuation.
+        """
+        # Fix mojibake: try re-encoding as Windows-1252 and decoding as UTF-8.
+        # e.g. "â€"" (mis-decoded en dash) → "–", "â€"Â\u00a0" → "–\u00a0"
+        # If encoding fails (non-Windows-1252 chars) or decoding produces invalid UTF-8,
+        # leave the title unchanged.
+        try:
+            title = title.encode('windows-1252').decode('utf-8')
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            pass
         # Normalize unicode (e.g. é → e, ñ → n)
         normalized = unicodedata.normalize('NFKD', title)
         normalized = ''.join(c for c in normalized if not unicodedata.combining(c))
@@ -148,6 +165,24 @@ class SupabaseEnricher:
             return resp.json()
         except Exception as e:
             print(f"Supabase batch query failed: {e}")
+            return []
+
+    def _query_supabase_ilike(self, prefix: str) -> List[Dict]:
+        """Query Supabase for titles starting with prefix (case-insensitive).
+
+        Used as Pass 4 to catch title mismatches like:
+        - "Die Hard With a Vengeance" → "Die Hard: With a Vengeance"
+        - "Glass Onion" → "Glass Onion: A Knives Out Mystery"
+        """
+        pattern = f'{prefix}*'
+        encoded = urllib.parse.quote(pattern, safe='*')
+        url = f'{self.supabase_url}/rest/v1/movies?select=*&title=ilike.{encoded}&limit=50'
+        try:
+            resp = self.supabase_session.get(url, timeout=30)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            print(f"Supabase ilike query failed for '{prefix}': {e}")
             return []
 
     def _tmdb_rate_limit(self):
@@ -360,12 +395,9 @@ class SupabaseEnricher:
                     still_needed.append((title, year))
             tmdb_needed = still_needed
 
-        # Pass 3: Prefix match — catches cases where Letterboxd uses a shorter title than Supabase
-        # e.g. Letterboxd "Glass Onion" → Supabase "Glass Onion: A Knives Out Mystery"
-        # We require the Supabase normalized title to start with the Letterboxd normalized title
-        # followed by a word boundary (space or end), to avoid false positives like "Alien" → "Alien 3".
+        # Pass 3: Prefix match against already-fetched Supabase results.
+        # Handles cases where another film in the same batch has the full title (rare but free).
         if tmdb_needed:
-            # Build a list of (norm_key, rows) for prefix scan — only worthwhile for short search titles
             norm_supabase_entries: List[Tuple[str, Dict]] = []
             for title_key, rows in supabase_results.items():
                 norm_key = self._normalize_title(title_key)
@@ -375,13 +407,11 @@ class SupabaseEnricher:
             still_needed = []
             for title, year in tmdb_needed:
                 norm_title = self._normalize_title(title)
-                # Only try prefix matching for reasonably long search terms (avoid "It" matching "It's Complicated")
                 if len(norm_title) < 5:
                     still_needed.append((title, year))
                     continue
                 matched = None
                 for norm_key, row in norm_supabase_entries:
-                    # Supabase title starts with the search title at a word boundary
                     if (norm_key.startswith(norm_title)
                             and (len(norm_key) == len(norm_title) or norm_key[len(norm_title)] == ' ')):
                         row_year = row.get('year')
@@ -396,11 +426,71 @@ class SupabaseEnricher:
                     still_needed.append((title, year))
             tmdb_needed = still_needed
 
-        if self.on_progress:
-            self.on_progress(f"Found {supabase_hits}/{total} in database. Fetching {len(tmdb_needed)} from TMDB...", 65)
-
-        # Phase 2: TMDB fallback for remaining misses
+        # Pass 4: ilike prefix query — the main fix for punctuation/subtitle mismatches.
+        # Queries Supabase with "first two normalized words*" then validates with normalized comparison.
+        # Catches:
+        #   "Die Hard With a Vengeance"  → "Die Hard: With a Vengeance"
+        #   "Glass Onion"                → "Glass Onion: A Knives Out Mystery"
+        #   "Wake Up Dead Man"           → "Wake Up Dead Man: A Knives Out Mystery"
+        #   "Mission: Impossible – …"   → "Mission: Impossible - …"  (after mojibake fix)
         if tmdb_needed:
+            # Group unmatched films by their 2-word normalized prefix to batch ilike queries
+            prefix_to_films: Dict[str, List[Tuple[str, int]]] = {}
+            no_prefix_films = []
+            for title, year in tmdb_needed:
+                words = self._normalize_title(title).split()
+                if len(words) < 2:
+                    no_prefix_films.append((title, year))
+                    continue
+                prefix = ' '.join(words[:2])
+                prefix_to_films.setdefault(prefix, []).append((title, year))
+
+            # Parallel ilike fetches (one per unique prefix)
+            prefix_results: Dict[str, List[Dict]] = {}
+            if prefix_to_films:
+                with ThreadPoolExecutor(max_workers=min(5, len(prefix_to_films))) as executor:
+                    futures = {
+                        executor.submit(self._query_supabase_ilike, prefix): prefix
+                        for prefix in prefix_to_films
+                    }
+                    for future in as_completed(futures):
+                        prefix = futures[future]
+                        prefix_results[prefix] = future.result()
+
+            still_needed = list(no_prefix_films)
+            for prefix, films_for_prefix in prefix_to_films.items():
+                candidate_rows = prefix_results.get(prefix, [])
+                for title, year in films_for_prefix:
+                    norm_title = self._normalize_title(title)
+                    matched = None
+                    for row in candidate_rows:
+                        row_year = row.get('year')
+                        if not row_year or abs(int(row_year) - year) > 2:
+                            continue
+                        norm_row = self._normalize_title(row.get('title', ''))
+                        # Exact normalized match
+                        if norm_row == norm_title:
+                            matched = row
+                            break
+                        # Prefix match: Supabase has a longer subtitle (e.g. "Glass Onion: A Knives Out Mystery")
+                        if (len(norm_title) >= 5
+                                and norm_row.startswith(norm_title)
+                                and (len(norm_row) == len(norm_title) or norm_row[len(norm_title)] == ' ')):
+                            matched = row
+                            break
+                    if matched:
+                        enriched[(title, year)] = self._transform_supabase_row(matched)
+                        supabase_hits += 1
+                        tmdb_needed_reasons.pop((title, year), None)
+                    else:
+                        still_needed.append((title, year))
+            tmdb_needed = still_needed
+
+        if self.on_progress:
+            self.on_progress(f"Found {supabase_hits}/{total} films in database.", 70)
+
+        # Phase 2: TMDB fallback (disabled by default — ~90% of misses are TV shows/shorts)
+        if self.TMDB_FALLBACK_ENABLED and tmdb_needed:
             tmdb_total = len(tmdb_needed)
             completed = 0
             max_workers = min(15, tmdb_total)
@@ -418,10 +508,10 @@ class SupabaseEnricher:
                     completed += 1
 
                     if self.on_progress and completed % 5 == 0:
-                        pct = 65 + completed / tmdb_total * 30
+                        pct = 70 + completed / tmdb_total * 25
                         self.on_progress(f"Fetching metadata for rare films... ({completed}/{tmdb_total})", min(pct, 95))
 
-        # Store fallback list with detail on why each was missed and whether TMDB found it
+        # Store list of films not found in database (for CSV download)
         self._tmdb_fallback_films = [
             {
                 'title': t,
