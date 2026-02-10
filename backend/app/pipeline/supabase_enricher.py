@@ -183,13 +183,14 @@ class SupabaseEnricher:
             return None
 
         movie = result['results'][0]
-        # Basic validation
-        result_title = movie.get('title', '').lower()
-        search_lower = title.lower()
-        if search_lower not in result_title and result_title not in search_lower:
-            orig = movie.get('original_title', '').lower()
-            if search_lower not in orig and orig not in search_lower:
-                return None
+        # Validate using normalized titles so that dash/punctuation differences don't block matches
+        # e.g. "Mission: Impossible – Ghost Protocol" (en dash) matches TMDB's "Mission: Impossible - Ghost Protocol"
+        norm_search = self._normalize_title(title)
+        norm_result = self._normalize_title(movie.get('title', ''))
+        norm_orig = self._normalize_title(movie.get('original_title', ''))
+        if (norm_search not in norm_result and norm_result not in norm_search
+                and norm_search not in norm_orig and norm_orig not in norm_search):
+            return None
 
         # Get full details
         details = self._tmdb_request(f"movie/{movie['id']}", {'append_to_response': 'credits'})
@@ -330,6 +331,8 @@ class SupabaseEnricher:
                 tmdb_needed.append((title, year))
 
         # Pass 2: Normalized title fallback for remaining misses
+        # Handles punctuation/dash/unicode differences (e.g. "Mission: Impossible – Rogue Nation"
+        # matching Supabase "Mission: Impossible - Rogue Nation")
         if tmdb_needed:
             # Build normalized lookup from ALL Supabase results
             normalized_lookup: Dict[str, List[Dict]] = {}
@@ -349,6 +352,42 @@ class SupabaseEnricher:
                     if row_year and abs(int(row_year) - year) <= 2:
                         matched = row
                         break
+                if matched:
+                    enriched[(title, year)] = self._transform_supabase_row(matched)
+                    supabase_hits += 1
+                    tmdb_needed_reasons.pop((title, year), None)
+                else:
+                    still_needed.append((title, year))
+            tmdb_needed = still_needed
+
+        # Pass 3: Prefix match — catches cases where Letterboxd uses a shorter title than Supabase
+        # e.g. Letterboxd "Glass Onion" → Supabase "Glass Onion: A Knives Out Mystery"
+        # We require the Supabase normalized title to start with the Letterboxd normalized title
+        # followed by a word boundary (space or end), to avoid false positives like "Alien" → "Alien 3".
+        if tmdb_needed:
+            # Build a list of (norm_key, rows) for prefix scan — only worthwhile for short search titles
+            norm_supabase_entries: List[Tuple[str, Dict]] = []
+            for title_key, rows in supabase_results.items():
+                norm_key = self._normalize_title(title_key)
+                for row in rows:
+                    norm_supabase_entries.append((norm_key, row))
+
+            still_needed = []
+            for title, year in tmdb_needed:
+                norm_title = self._normalize_title(title)
+                # Only try prefix matching for reasonably long search terms (avoid "It" matching "It's Complicated")
+                if len(norm_title) < 5:
+                    still_needed.append((title, year))
+                    continue
+                matched = None
+                for norm_key, row in norm_supabase_entries:
+                    # Supabase title starts with the search title at a word boundary
+                    if (norm_key.startswith(norm_title)
+                            and (len(norm_key) == len(norm_title) or norm_key[len(norm_title)] == ' ')):
+                        row_year = row.get('year')
+                        if row_year and abs(int(row_year) - year) <= 2:
+                            matched = row
+                            break
                 if matched:
                     enriched[(title, year)] = self._transform_supabase_row(matched)
                     supabase_hits += 1

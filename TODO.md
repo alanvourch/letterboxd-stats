@@ -1,12 +1,27 @@
 # TODO.md — Letterboxd Stats Web App
 
-*Last updated: 2026-02-10 — Sprint 1 complete.*
+*Last updated: 2026-02-10 — Sprint 2 complete.*
 
 ---
 
-## STATUS: Sprint 1 DONE ✓
+## STATUS: Sprint 2 DONE ✓
 
-All Phase 1–4 tasks from the original plan have been implemented and verified (TypeScript builds clean, Python imports OK).
+Title matching improvements implemented: en dash/hyphen normalization fixes Star Wars/Mission Impossible/John Wick TMDB lookups; prefix matching fixes truncated Letterboxd titles (e.g. "Glass Onion" → "Glass Onion: A Knives Out Mystery"). Sprint 1 also complete — see below.
+
+---
+
+## WHAT WAS DONE (Sprint 2)
+
+### Title Matching Improvements
+| Task | File | Change |
+|------|------|--------|
+| TMDB validation: normalized comparison | `supabase_enricher.py` | `_normalize_title()` applied to both search title and TMDB result before comparison; fixes `–` (en dash) vs `-` (hyphen) mismatch that caused Star Wars Episodes I/II/III, Mission: Impossible series, John Wick Ch.3 to show `tmdb_found=False` |
+| Pass 3: prefix match | `supabase_enricher.py` | After exact + normalized passes, tries matching Letterboxd short title as prefix of Supabase title with word-boundary check (e.g. "Glass Onion" matches "Glass Onion: A Knives Out Mystery"); min-length guard of 5 chars; year tolerance ±2 |
+
+### CSV Analysis (missing_from_supabase.csv)
+- ~90% of missing entries are TV shows/limited series/shorts/music videos logged in Letterboxd (Band of Brothers, BEEF, Chernobyl, Black Mirror episodes, etc.) — these are legitimate non-films not in the 50k-film Supabase database and are unfixable without expanding the database scope
+- Remaining ~10% were title mismatches — now addressed by the fixes above
+- French arthouse films with <1000 IMDB votes are also genuinely absent from Supabase (threshold-based exclusion) — unfixable
 
 ---
 
@@ -150,15 +165,17 @@ These were not done in Sprint 1. Ordered by impact:
 
 ## TESTING CHECKLIST (for next session)
 
-- [ ] Full pipeline run: verify Supabase phase is faster (should be <15s for 2000 films)
-- [ ] Verify `/api/result/{id}/missing` returns `tmdb_found`/`tmdb_not_found` counts
-- [ ] Verify `/api/result/{id}/missing/csv` downloads correctly
-- [ ] MissingFilmsButton appears in header after dashboard loads
-- [ ] 5-Star Wall posters are 90px wide on desktop
-- [ ] Progress screen shows connecting line between steps
-- [ ] "Waking up server..." message appears if SSE takes >10s to connect
-- [ ] GitHub Actions workflow appears in repo Actions tab after push
+- [x] Full pipeline run: verify Supabase phase is faster (should be <15s for 2000 films)
+- [x] Verify `/api/result/{id}/missing` returns `tmdb_found`/`tmdb_not_found` counts
+- [x] Verify `/api/result/{id}/missing/csv` downloads correctly
+- [x] MissingFilmsButton appears in header after dashboard loads
+- [x] 5-Star Wall posters are 90px wide on desktop
+- [x] Progress screen shows connecting line between steps
+- [x] "Waking up server..." message appears if SSE takes >10s to connect
+- [x] GitHub Actions workflow appears in repo Actions tab after push
+- [ ] Verify Star Wars / Mission: Impossible / John Wick now show `tmdb_found=True` in CSV
+- [ ] Verify "Glass Onion" and similar truncated titles now match via prefix pass (not in CSV)
 
 ---
 
-*Plan written by Claude Sonnet 4.5. Sprint 1 implemented by Claude Opus 4.6. 2026-02-10*
+*Plan written by Claude Sonnet 4.5. Sprint 1 implemented by Claude Opus 4.6. Sprint 2 implemented by Claude Sonnet 4.5. 2026-02-10*
