@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { uploadZip, pingHealth } from '../lib/api'
+import { uploadZip } from '../lib/api'
 import UploadZone from '../components/UploadZone'
 
 export default function LandingPage() {
