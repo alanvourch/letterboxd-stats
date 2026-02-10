@@ -33,7 +33,12 @@ export default function LandingPage() {
       const { job_id } = await uploadZip(file)
       navigate(`/dashboard/${job_id}`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed')
+      const msg = err instanceof Error ? err.message : 'Upload failed'
+      if (msg.includes('FILE_CHANGED') || msg.includes('file changed')) {
+        setError('The file changed while uploading. Please move the ZIP out of any cloud-sync folder (OneDrive, Dropbox, etc.) and try again.')
+      } else {
+        setError(msg)
+      }
       setIsUploading(false)
     }
   }
