@@ -1,12 +1,29 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { uploadZip } from '../lib/api'
+import { uploadZip, pingHealth } from '../lib/api'
 import UploadZone from '../components/UploadZone'
 
 export default function LandingPage() {
   const navigate = useNavigate()
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [serverReady, setServerReady] = useState<boolean | null>(null)
+
+  // Warm up backend on page load
+  useEffect(() => {
+    const start = Date.now()
+    const controller = new AbortController()
+    fetch(
+      `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/health`,
+      { signal: controller.signal }
+    )
+      .then(() => setServerReady(true))
+      .catch(() => {
+        // If it took a while and failed, server might be waking up
+        if (Date.now() - start > 5000) setServerReady(false)
+      })
+    return () => controller.abort()
+  }, [])
 
   const handleUpload = async (file: File) => {
     setIsUploading(true)
@@ -35,12 +52,27 @@ export default function LandingPage() {
         </div>
 
         {/* Upload Section */}
-        <div className="bg-bg-card rounded-2xl p-8 mb-12">
+        <div className="bg-bg-card rounded-2xl p-8 mb-8">
           <UploadZone
             onUpload={handleUpload}
             isLoading={isUploading}
             error={error}
           />
+          {serverReady === false && (
+            <p className="text-center text-accent-yellow text-sm mt-4">
+              Server is waking up... this may take up to 30 seconds on first visit.
+            </p>
+          )}
+          <p className="text-center text-text-secondary text-xs mt-3">
+            Processing typically takes 1-2 minutes for large libraries.
+          </p>
+        </div>
+
+        {/* Privacy Notice */}
+        <div className="text-center mb-8">
+          <p className="text-text-secondary text-sm">
+            Your data is processed in memory and deleted immediately. We don't store your films.
+          </p>
         </div>
 
         {/* Instructions */}

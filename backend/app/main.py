@@ -1,4 +1,6 @@
 """FastAPI application entry point."""
+import asyncio
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter
@@ -7,11 +9,21 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from app import config
 from app.routes import upload, status, download
+from app.workers import cleanup_old_jobs
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(cleanup_old_jobs())
+    yield
+    task.cancel()
+
 
 # Create app
 app = FastAPI(
     title="Letterboxd Stats API",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Rate limiter

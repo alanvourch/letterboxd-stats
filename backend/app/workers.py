@@ -3,9 +3,11 @@ import asyncio
 import json
 import shutil
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
 from typing import Dict, Callable
 
 from app.models import JobState, JobStatus
+from app import config
 
 # Global job storage
 jobs: Dict[str, JobState] = {}
@@ -108,3 +110,17 @@ async def start_pipeline(job: JobState):
     """Start pipeline in background thread."""
     loop = asyncio.get_event_loop()
     loop.run_in_executor(executor, _run_pipeline, job)
+
+
+async def cleanup_old_jobs():
+    """Periodically clean up old completed/error jobs."""
+    while True:
+        await asyncio.sleep(300)  # Every 5 minutes
+        cutoff = datetime.utcnow() - timedelta(minutes=config.JOB_EXPIRY_MINUTES)
+        expired = [
+            jid for jid, job in jobs.items()
+            if job.status in (JobStatus.COMPLETE, JobStatus.ERROR)
+            and job.created_at < cutoff
+        ]
+        for jid in expired:
+            del jobs[jid]

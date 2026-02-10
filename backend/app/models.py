@@ -1,4 +1,5 @@
 """Pydantic models for API requests/responses."""
+from datetime import datetime
 from enum import Enum
 from typing import Optional
 from pydantic import BaseModel
@@ -27,6 +28,7 @@ class JobState:
         self.charts_json: Optional[str] = None
         self.html: Optional[str] = None
         self.tmdb_fallback_films: Optional[str] = None  # JSON list of films not in Supabase
+        self.created_at = datetime.utcnow()
 
 
 class UploadResponse(BaseModel):

@@ -1,0 +1,11 @@
+name: Keep Backend Alive
+on:
+  schedule:
+    - cron: '*/14 * * * *'
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Backend Health
+        run: curl -sf https://letterboxd-stats-f7ju.onrender.com/api/health || true

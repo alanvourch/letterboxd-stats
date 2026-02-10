@@ -1,7 +1,9 @@
 """Supabase-first enricher: bulk lookup from Supabase, TMDB fallback for misses."""
 import json
+import re
 import requests
 import time
+import unicodedata
 import urllib.parse
 from typing import Dict, List, Optional, Tuple, Callable
 from datetime import datetime
@@ -39,6 +41,20 @@ class SupabaseEnricher:
 
         self._rate_lock = threading.Lock()
         self._request_times: List[float] = []
+        self._tmdb_session_cache: Dict[Tuple[str, int], Optional[Dict]] = {}
+
+    @staticmethod
+    def _normalize_title(title: str) -> str:
+        """Normalize a title for fuzzy matching."""
+        # Normalize unicode (e.g. é → e, ñ → n)
+        normalized = unicodedata.normalize('NFKD', title)
+        normalized = ''.join(c for c in normalized if not unicodedata.combining(c))
+        normalized = normalized.lower()
+        # Remove punctuation except spaces
+        normalized = re.sub(r"[^\w\s]", '', normalized)
+        # Collapse whitespace
+        normalized = re.sub(r'\s+', ' ', normalized).strip()
+        return normalized
 
     def get_new_cache_count(self) -> int:
         return self._new_cache_entries
@@ -230,7 +246,12 @@ class SupabaseEnricher:
     def _fetch_tmdb_single(self, title: str, year: int) -> Tuple[str, int, Optional[Dict]]:
         if year == 0:
             return (title, year, None)
-        return (title, year, self._tmdb_search(title, year))
+        cache_key = (title, year)
+        if cache_key in self._tmdb_session_cache:
+            return (title, year, self._tmdb_session_cache[cache_key])
+        result = self._tmdb_search(title, year)
+        self._tmdb_session_cache[cache_key] = result
+        return (title, year, result)
 
     def enrich_films(self, films_df, diary_df=None) -> Dict[Tuple, Dict]:
         """Enrich films: Supabase first, TMDB fallback."""
@@ -248,53 +269,102 @@ class SupabaseEnricher:
         if self.on_progress:
             self.on_progress(f"Looking up {total} films in database...", 0)
 
-        # Phase 1: Batch query Supabase
-        # Group by unique titles for batch queries
+        # Phase 1: Parallel batch query Supabase
         unique_titles = list({title for title, _ in film_list})
         batch_size = 50
-        supabase_results: Dict[str, List[Dict]] = {}  # title -> list of rows
+        batches = [unique_titles[i:i + batch_size] for i in range(0, len(unique_titles), batch_size)]
+        total_batches = len(batches)
 
-        for i in range(0, len(unique_titles), batch_size):
-            batch = unique_titles[i:i + batch_size]
-            rows = self._query_supabase_batch(batch)
+        # Collect all batch results, then merge (thread-safe: no shared writes)
+        batch_results: List[List[Dict]] = [[] for _ in range(total_batches)]
+        max_supabase_workers = min(5, total_batches)
+        completed_batches = 0
+        batch_lock = threading.Lock()
+
+        def _fetch_batch(idx: int, batch: List[str]) -> Tuple[int, List[Dict]]:
+            return (idx, self._query_supabase_batch(batch))
+
+        with ThreadPoolExecutor(max_workers=max_supabase_workers) as executor:
+            futures = {
+                executor.submit(_fetch_batch, i, batch): i
+                for i, batch in enumerate(batches)
+            }
+            for future in as_completed(futures):
+                idx, rows = future.result()
+                batch_results[idx] = rows
+                with batch_lock:
+                    completed_batches += 1
+                    if self.on_progress:
+                        pct = completed_batches / total_batches * 60
+                        self.on_progress(f"Scanning database... ({completed_batches}/{total_batches} batches)", pct)
+
+        # Merge all batch results into lookup dict
+        supabase_results: Dict[str, List[Dict]] = {}
+        for rows in batch_results:
             for row in rows:
                 t = row.get('title', '')
                 if t not in supabase_results:
                     supabase_results[t] = []
                 supabase_results[t].append(row)
 
-            if self.on_progress:
-                pct = min(i + batch_size, len(unique_titles)) / len(unique_titles) * 60
-                self.on_progress(f"Database lookup ({min(i + batch_size, len(unique_titles))}/{len(unique_titles)})...", pct)
-
-        # Match by title + year
+        # Pass 1: Exact title match + year within ±2
         tmdb_needed = []
+        tmdb_needed_reasons: Dict[Tuple[str, int], str] = {}
         supabase_hits = 0
         for title, year in film_list:
             candidates = supabase_results.get(title, [])
             matched = None
             for row in candidates:
                 row_year = row.get('year')
-                if row_year and abs(int(row_year) - year) <= 1:
+                if row_year and abs(int(row_year) - year) <= 2:
                     matched = row
                     break
             if matched:
                 enriched[(title, year)] = self._transform_supabase_row(matched)
                 supabase_hits += 1
             else:
+                if candidates:
+                    tmdb_needed_reasons[(title, year)] = "year_mismatch"
+                else:
+                    tmdb_needed_reasons[(title, year)] = "not_in_db"
                 tmdb_needed.append((title, year))
 
-        # Store the list of films needing TMDB fallback
-        self._tmdb_fallback_films = [{'title': t, 'year': y} for t, y in tmdb_needed]
+        # Pass 2: Normalized title fallback for remaining misses
+        if tmdb_needed:
+            # Build normalized lookup from ALL Supabase results
+            normalized_lookup: Dict[str, List[Dict]] = {}
+            for title_key, rows in supabase_results.items():
+                norm_key = self._normalize_title(title_key)
+                if norm_key not in normalized_lookup:
+                    normalized_lookup[norm_key] = []
+                normalized_lookup[norm_key].extend(rows)
+
+            still_needed = []
+            for title, year in tmdb_needed:
+                norm_title = self._normalize_title(title)
+                candidates = normalized_lookup.get(norm_title, [])
+                matched = None
+                for row in candidates:
+                    row_year = row.get('year')
+                    if row_year and abs(int(row_year) - year) <= 2:
+                        matched = row
+                        break
+                if matched:
+                    enriched[(title, year)] = self._transform_supabase_row(matched)
+                    supabase_hits += 1
+                    tmdb_needed_reasons.pop((title, year), None)
+                else:
+                    still_needed.append((title, year))
+            tmdb_needed = still_needed
 
         if self.on_progress:
-            self.on_progress(f"{supabase_hits} found in database, {len(tmdb_needed)} need TMDB lookup", 65)
+            self.on_progress(f"Found {supabase_hits}/{total} in database. Fetching {len(tmdb_needed)} from TMDB...", 65)
 
-        # Phase 2: TMDB fallback for misses
+        # Phase 2: TMDB fallback for remaining misses
         if tmdb_needed:
             tmdb_total = len(tmdb_needed)
             completed = 0
-            max_workers = min(8, tmdb_total)
+            max_workers = min(15, tmdb_total)
 
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 futures = {
@@ -310,7 +380,18 @@ class SupabaseEnricher:
 
                     if self.on_progress and completed % 5 == 0:
                         pct = 65 + completed / tmdb_total * 30
-                        self.on_progress(f"TMDB fallback ({completed}/{tmdb_total})...", min(pct, 95))
+                        self.on_progress(f"Fetching metadata for rare films... ({completed}/{tmdb_total})", min(pct, 95))
+
+        # Store fallback list with detail on why each was missed and whether TMDB found it
+        self._tmdb_fallback_films = [
+            {
+                'title': t,
+                'year': y,
+                'tmdb_found': (t, y) in enriched,
+                'supabase_miss_reason': tmdb_needed_reasons.get((t, y), 'not_in_db'),
+            }
+            for t, y in tmdb_needed
+        ]
 
         if self.on_progress:
             self.on_progress(f"Enrichment complete: {len(enriched)}/{total} films", 98)

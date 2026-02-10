@@ -4,6 +4,7 @@ import { useJobStatus } from '../hooks/useJobStatus'
 import { getResultJson, getDownloadUrl } from '../lib/api'
 import ProgressBar from '../components/ProgressBar'
 import DownloadButton from '../components/DownloadButton'
+import MissingFilmsButton from '../components/MissingFilmsButton'
 import TabNav from '../components/Dashboard/TabNav'
 import OverviewTab from '../components/Dashboard/OverviewTab'
 import JourneyTab from '../components/Dashboard/JourneyTab'
@@ -89,10 +90,28 @@ export default function DashboardPage() {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-bg-secondary/95 backdrop-blur border-b border-bg-hover">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-accent-cyan to-accent-purple bg-clip-text text-transparent">
-            Your Letterboxd Stats
-          </h1>
-          <DownloadButton url={getDownloadUrl(jobId!)} />
+          <div>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-accent-cyan to-accent-purple bg-clip-text text-transparent">
+              Your Letterboxd Stats
+            </h1>
+            {data && (() => {
+              const basic = (data.stats.basic || {}) as Record<string, number>
+              const journey = (data.stats.journey || {}) as Record<string, unknown>
+              const firstFilm = journey.first_film as { date?: string } | undefined
+              const sinceYear = firstFilm?.date ? new Date(firstFilm.date).getFullYear() : null
+              return (
+                <p className="text-text-secondary text-sm mt-0.5">
+                  {basic.total_watched?.toLocaleString() || 0} films
+                  {basic.avg_rating ? ` · ★${basic.avg_rating.toFixed(1)}` : ''}
+                  {sinceYear ? ` · since ${sinceYear}` : ''}
+                </p>
+              )
+            })()}
+          </div>
+          <div className="flex items-center gap-4">
+            <MissingFilmsButton jobId={jobId!} />
+            <DownloadButton url={getDownloadUrl(jobId!)} />
+          </div>
         </div>
         <TabNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
       </header>

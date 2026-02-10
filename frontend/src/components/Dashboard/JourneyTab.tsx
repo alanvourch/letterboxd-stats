@@ -157,9 +157,9 @@ export default function JourneyTab({ stats }: JourneyTabProps) {
       {fiveStars.length > 0 && (
         <section>
           <h2 className="text-2xl font-bold mb-4">5-Star Wall ({fiveStars.length} films)</h2>
-          <div className="flex flex-wrap gap-1">
+          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))' }}>
             {fiveStars.map((film, i) => (
-              <PosterCard key={i} film={film} size="xs" />
+              <PosterCard key={i} film={film} size="sm" />
             ))}
           </div>
         </section>
