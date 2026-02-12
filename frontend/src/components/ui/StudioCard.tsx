@@ -30,22 +30,26 @@ export default function StudioCard({ studio, rank, onClick }: StudioCardProps) {
   return (
     <div
       onClick={onClick}
-      className="bg-bg-card rounded-xl p-4 cursor-pointer hover:bg-bg-hover transition-colors"
+      className="glass-card glass-card-interactive p-5 cursor-pointer"
     >
       <div className="flex gap-4 items-center">
         {/* Rank */}
         <span className="text-accent-cyan font-bold text-lg">#{rank}</span>
 
         {/* Logo */}
-        <div className="w-16 h-16 rounded-lg overflow-hidden bg-white flex items-center justify-center p-2">
+        <div className="w-20 h-20 rounded-xl overflow-hidden flex items-center justify-center">
           {logoUrl ? (
-            <img
-              src={logoUrl}
-              alt={studio.name}
-              className="max-w-full max-h-full object-contain"
-            />
+            <div className="w-full h-full bg-white p-2 flex items-center justify-center">
+              <img
+                src={logoUrl}
+                alt={studio.name}
+                className="max-w-full max-h-full object-contain"
+              />
+            </div>
           ) : (
-            <span className="text-bg-primary text-xs text-center">{studio.name.slice(0, 10)}</span>
+            <div className="w-full h-full bg-gradient-to-br from-accent-cyan to-accent-purple flex items-center justify-center text-white text-2xl font-bold rounded-xl">
+              {studio.name.charAt(0)}
+            </div>
           )}
         </div>
 
@@ -54,7 +58,7 @@ export default function StudioCard({ studio, rank, onClick }: StudioCardProps) {
           <h3 className="font-semibold truncate">{studio.name}</h3>
           <div className="text-text-secondary text-sm">
             <p>{studio.count} films</p>
-            <p>★ {studio.avg_rating.toFixed(1)} avg</p>
+            <p className="text-accent-yellow">★ {studio.avg_rating.toFixed(1)} avg</p>
           </div>
         </div>
       </div>

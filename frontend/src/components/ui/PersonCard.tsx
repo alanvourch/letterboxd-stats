@@ -33,17 +33,22 @@ export default function PersonCard({ person, rank, onClick }: PersonCardProps) {
   return (
     <div
       onClick={onClick}
-      className="bg-bg-card rounded-xl p-4 cursor-pointer hover:bg-bg-hover transition-colors group"
+      className="glass-card glass-card-interactive relative overflow-hidden p-5 cursor-pointer group"
     >
-      <div className="flex gap-3">
+      {/* Top gradient strip on hover */}
+      <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-accent-cyan to-accent-purple opacity-0 group-hover:opacity-100 transition-opacity" />
+
+      <div className="flex gap-4">
         {/* Rank + Photo */}
         <div className="flex-shrink-0 text-center">
           <span className="text-accent-cyan font-bold text-sm">#{rank}</span>
-          <div className="w-[80px] h-[80px] mt-1 rounded-full overflow-hidden bg-bg-hover ring-2 ring-bg-hover group-hover:ring-accent-cyan/30 transition-all">
+          <div className="w-[100px] h-[100px] mt-1 rounded-full overflow-hidden ring-2 ring-white/[0.08] group-hover:ring-accent-cyan/40 transition-all">
             {profileUrl ? (
               <img src={profileUrl} alt={person.name} className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-text-secondary text-2xl">👤</div>
+              <div className="w-full h-full bg-gradient-to-br from-accent-purple to-accent-cyan flex items-center justify-center text-white text-2xl font-bold">
+                {person.name.charAt(0)}
+              </div>
             )}
           </div>
         </div>
@@ -57,7 +62,7 @@ export default function PersonCard({ person, rank, onClick }: PersonCardProps) {
           </div>
 
           {/* Mini poster strip */}
-          <div className="flex gap-1 mt-2">
+          <div className="flex gap-1.5 mt-2.5">
             {person.films.slice(0, 5).map((film, i) => (
               <div key={i} className="w-[48px] h-[72px] flex-shrink-0 rounded overflow-hidden">
                 {film.poster_path ? (
@@ -68,7 +73,7 @@ export default function PersonCard({ person, rank, onClick }: PersonCardProps) {
                     loading="lazy"
                   />
                 ) : (
-                  <div className="w-full h-full bg-bg-hover" />
+                  <div className="w-full h-full bg-bg-hover rounded" />
                 )}
               </div>
             ))}
@@ -76,9 +81,9 @@ export default function PersonCard({ person, rank, onClick }: PersonCardProps) {
 
           {/* Like ratio bar */}
           {person.liked_count > 0 && (
-            <div className="mt-2">
+            <div className="mt-2.5">
               <div className="h-1.5 bg-bg-hover rounded-full overflow-hidden">
-                <div className="h-full bg-accent-pink rounded-full" style={{ width: `${likeRatio}%` }} />
+                <div className="h-full bg-gradient-to-r from-accent-cyan to-accent-pink rounded-full" style={{ width: `${likeRatio}%` }} />
               </div>
               <p className="text-xs text-text-secondary mt-0.5">
                 {person.liked_count} liked ({likeRatio.toFixed(0)}%)

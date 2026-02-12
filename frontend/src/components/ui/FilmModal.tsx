@@ -31,27 +31,32 @@ export default function FilmModal({ title, films, onClose }: FilmModalProps) {
       onClick={onClose}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/80" />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
       {/* Modal */}
       <div
-        className="relative bg-bg-secondary rounded-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden"
+        className="relative bg-bg-secondary/95 backdrop-blur-xl border border-white/[0.08] rounded-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-bg-hover">
-          <h2 className="text-2xl font-bold">{title}</h2>
+        <div className="flex items-center justify-between p-6 border-b border-white/[0.08]">
+          <h2 className="text-2xl font-bold">
+            {title}
+            <span className="text-text-secondary text-base font-normal ml-3">
+              {films.length} films
+            </span>
+          </h2>
           <button
             onClick={onClose}
-            className="text-text-secondary hover:text-text-primary text-2xl"
+            className="w-10 h-10 rounded-full bg-white/[0.06] hover:bg-white/[0.12] flex items-center justify-center transition-colors text-text-secondary hover:text-text-primary"
           >
-            ×
+            <span className="text-xl leading-none">&times;</span>
           </button>
         </div>
 
         {/* Film Grid */}
-        <div className="p-6 overflow-y-auto max-h-[60vh]">
-          <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+        <div className="p-6 overflow-y-auto max-h-[65vh]">
+          <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-4">
             {films.map((film, i) => (
               <PosterCard key={i} film={film} size="md" />
             ))}

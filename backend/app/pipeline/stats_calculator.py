@@ -96,6 +96,43 @@ class StatsCalculator:
         print("[OK] Statistics calculated")
         return self.stats
 
+    def enrich_people_profiles(self, enricher):
+        """Fetch TMDB profile images for top people missing photos."""
+        names_needing_profiles = set()
+
+        for role in ['directors', 'composers', 'cinematographers', 'writers']:
+            for person in self.stats.get(role, {}).get('top_by_count', []):
+                if not person.get('profile_path'):
+                    names_needing_profiles.add(person['name'])
+
+        # Also check yearly breakdown top actor/director
+        for year_key in ['last_full_year', 'current_year']:
+            year_data = self.stats.get('yearly_breakdown', {}).get(year_key, {})
+            for person_key in ['top_actor', 'top_director']:
+                person = year_data.get(person_key)
+                if person and not person.get('profile_path'):
+                    names_needing_profiles.add(person['name'])
+
+        if not names_needing_profiles:
+            return
+
+        print(f"Fetching profile images for {len(names_needing_profiles)} people...")
+        profiles = enricher.fetch_person_profiles(list(names_needing_profiles))
+        print(f"Found {len(profiles)} profile images")
+
+        # Patch the stats
+        for role in ['directors', 'composers', 'cinematographers', 'writers']:
+            for person in self.stats.get(role, {}).get('top_by_count', []):
+                if not person.get('profile_path') and person['name'] in profiles:
+                    person['profile_path'] = profiles[person['name']]
+
+        for year_key in ['last_full_year', 'current_year']:
+            year_data = self.stats.get('yearly_breakdown', {}).get(year_key, {})
+            for person_key in ['top_actor', 'top_director']:
+                person = year_data.get(person_key)
+                if person and not person.get('profile_path') and person['name'] in profiles:
+                    person['profile_path'] = profiles[person['name']]
+
     def _calculate_basic_stats(self):
         """Calculate basic Letterboxd statistics"""
         watched = self.lb_data.get('watched', pd.DataFrame())

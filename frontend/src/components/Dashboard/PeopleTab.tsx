@@ -60,17 +60,17 @@ export default function PeopleTab({ stats }: PeopleTabProps) {
   const data = getData()
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Sub-tab navigation */}
       <div className="flex gap-2 flex-wrap">
         {TABS.map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-full font-medium transition-all ${
+            className={`px-5 py-2.5 rounded-full font-medium transition-all text-sm ${
               activeTab === tab
-                ? 'bg-accent-cyan text-bg-primary'
-                : 'bg-bg-card text-text-secondary hover:text-text-primary'
+                ? 'bg-gradient-to-r from-accent-purple to-accent-cyan text-white font-semibold border border-transparent'
+                : 'border border-white/[0.08] text-text-secondary hover:text-text-primary hover:border-white/[0.16]'
             }`}
           >
             {tab}
@@ -79,7 +79,7 @@ export default function PeopleTab({ stats }: PeopleTabProps) {
       </div>
 
       {/* Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {activeTab === 'Studios' ? (
           (data as Studio[]).map((studio, i) => (
             <StudioCard

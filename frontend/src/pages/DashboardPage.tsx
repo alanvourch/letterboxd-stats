@@ -88,10 +88,13 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-bg-primary">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-bg-secondary/95 backdrop-blur border-b border-bg-hover">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-50 bg-bg-secondary/95 backdrop-blur-lg border-b border-white/[0.08]">
+        {/* Gradient accent line */}
+        <div className="h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink" />
+
+        <div className="max-w-[1400px] mx-auto px-6 py-5 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-accent-cyan to-accent-purple bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-accent-cyan to-accent-purple bg-clip-text text-transparent">
               Your Letterboxd Stats
             </h1>
             {data && (() => {
@@ -100,7 +103,7 @@ export default function DashboardPage() {
               const firstFilm = journey.first_film as { date?: string } | undefined
               const sinceYear = firstFilm?.date ? new Date(firstFilm.date).getFullYear() : null
               return (
-                <p className="text-text-secondary text-sm mt-0.5">
+                <p className="text-text-secondary text-sm mt-1">
                   {basic.total_watched?.toLocaleString() || 0} films
                   {basic.avg_rating ? ` · ★${basic.avg_rating.toFixed(1)}` : ''}
                   {sinceYear ? ` · since ${sinceYear}` : ''}
@@ -113,12 +116,16 @@ export default function DashboardPage() {
             <DownloadButton url={getDownloadUrl(jobId!)} />
           </div>
         </div>
-        <TabNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+        <div className="max-w-[1400px] mx-auto px-6">
+          <TabNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+        </div>
       </header>
 
       {/* Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {renderTab()}
+      <main className="max-w-[1400px] mx-auto px-6 py-10">
+        <div key={activeTab} className="animate-fade-in">
+          {renderTab()}
+        </div>
       </main>
     </div>
   )

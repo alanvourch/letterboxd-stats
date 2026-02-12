@@ -80,6 +80,39 @@ class SupabaseEnricher:
         """Return list of films that were not in Supabase and needed TMDB fallback."""
         return self._tmdb_fallback_films
 
+    def fetch_person_profiles(self, names: List[str]) -> Dict[str, str]:
+        """Fetch TMDB profile_path for a list of person names.
+
+        Uses TMDB /search/person endpoint. Returns {name: profile_path}.
+        Only fetches for names not already cached.
+        """
+        profiles: Dict[str, str] = {}
+
+        def _search_person(name: str) -> Tuple[str, Optional[str]]:
+            self._tmdb_rate_limit()
+            try:
+                resp = self.tmdb_session.get(
+                    f'{self.tmdb_base}/search/person',
+                    params={'query': name},
+                    timeout=10
+                )
+                resp.raise_for_status()
+                results = resp.json().get('results', [])
+                if results:
+                    return (name, results[0].get('profile_path'))
+            except Exception:
+                pass
+            return (name, None)
+
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(_search_person, name) for name in names]
+            for future in as_completed(futures):
+                name, path = future.result()
+                if path:
+                    profiles[name] = path
+
+        return profiles
+
     def _transform_supabase_row(self, row: Dict) -> Dict:
         """Transform a Supabase movie row into the enricher output format."""
         # Parse genres from comma-separated string

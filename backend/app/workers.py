@@ -66,6 +66,10 @@ def _run_pipeline(job: JobState):
         }
         calculator = StatsCalculator(letterboxd_data, enriched_films)
         stats = calculator.calculate_all()
+
+        # Fetch TMDB profile images for top directors/crew missing photos
+        job.message = "Fetching crew profile images..."
+        calculator.enrich_people_profiles(enricher)
         job.percent = 85
 
         # Step 4: Generate charts (85-90%)

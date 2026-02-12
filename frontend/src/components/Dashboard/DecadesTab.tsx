@@ -34,44 +34,44 @@ export default function DecadesTab({ stats, charts }: DecadesTabProps) {
   })
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {/* Favorite Decade */}
       {favoriteDecade && (
-        <section className="bg-bg-card rounded-xl p-6 text-center">
-          <p className="text-text-secondary mb-2">Your Favorite Decade</p>
-          <p className="text-4xl font-bold bg-gradient-to-r from-accent-cyan to-accent-purple bg-clip-text text-transparent">
+        <section className="glass-card p-8 text-center">
+          <p className="text-text-secondary text-xs uppercase tracking-wider mb-3">Your Favorite Decade</p>
+          <p className="text-6xl font-extrabold bg-gradient-to-r from-accent-cyan to-accent-purple bg-clip-text text-transparent">
             {favoriteDecade}
           </p>
           {favoriteDecadeAvg && (
-            <p className="text-text-secondary mt-1">Average rating: {favoriteDecadeAvg.toFixed(2)}</p>
+            <p className="text-text-secondary mt-2">Average rating: {favoriteDecadeAvg.toFixed(2)}</p>
           )}
         </section>
       )}
 
       {/* Decades Chart */}
-      <section className="bg-bg-card rounded-xl p-6">
+      <section className="glass-card p-6">
         <h2 className="text-2xl font-bold mb-4">Films by Decade</h2>
         <ChartWrapper config={charts.decades as string} type="bar" />
       </section>
 
       {/* Decade Cards */}
       <section>
-        <h2 className="text-2xl font-bold mb-4">Top Films by Era</h2>
+        <h2 className="text-2xl font-bold mb-6">Top Films by Era</h2>
         <div className="space-y-6">
           {sortedDecades.map(([decade, info]) => (
-            <div key={decade} className="bg-bg-card rounded-xl p-6">
+            <div key={decade} className="glass-card p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold text-accent-cyan">{decade}</h3>
                 <div className="flex gap-4 text-text-secondary text-sm">
                   <span>{info.total} films</span>
-                  {info.avg_rating > 0 && <span>Avg: {info.avg_rating.toFixed(1)}</span>}
+                  {info.avg_rating > 0 && <span className="text-accent-yellow">★ {info.avg_rating.toFixed(1)}</span>}
                 </div>
               </div>
-              <div className="flex gap-3 overflow-x-auto pb-2">
+              <div className="flex gap-4 overflow-x-auto pb-2">
                 {info.films.slice(0, 8).map((film, i) => (
                   <div key={i} className="flex-shrink-0 text-center">
                     <PosterCard film={film} size="md" />
-                    <p className="text-xs mt-1 text-text-secondary max-w-[100px] truncate">{film.title}</p>
+                    <p className="text-xs mt-1.5 text-text-secondary max-w-[140px] truncate">{film.title}</p>
                     {film.rating && <p className="text-xs text-accent-yellow">{'★'.repeat(Math.floor(film.rating))}{film.rating % 1 >= 0.5 ? '½' : ''}</p>}
                   </div>
                 ))}

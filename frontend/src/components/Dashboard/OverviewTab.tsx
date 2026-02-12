@@ -9,10 +9,10 @@ export default function OverviewTab({ stats, charts }: OverviewTabProps) {
   const basic = (stats.basic || {}) as Record<string, number>
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {/* Key Stats */}
       <section>
-        <h2 className="text-2xl font-bold mb-4">Overview</h2>
+        <h2 className="text-2xl font-bold mb-6">Overview</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard label="Films Watched" value={basic.total_watched || 0} color="cyan" />
           <StatCard label="Films Rated" value={basic.total_rated || 0} color="purple" />
@@ -23,22 +23,22 @@ export default function OverviewTab({ stats, charts }: OverviewTabProps) {
 
       {/* Charts */}
       <section className="grid md:grid-cols-2 gap-6">
-        <div className="bg-bg-card rounded-xl p-6">
+        <div className="glass-card p-6">
           <h3 className="text-lg font-semibold mb-4">Films Per Year</h3>
           <ChartWrapper config={charts.yearly as string} type="bar" />
         </div>
-        <div className="bg-bg-card rounded-xl p-6">
+        <div className="glass-card p-6">
           <h3 className="text-lg font-semibold mb-4">Monthly Activity</h3>
           <ChartWrapper config={charts.monthly as string} type="line" />
         </div>
       </section>
 
       <section className="grid md:grid-cols-2 gap-6">
-        <div className="bg-bg-card rounded-xl p-6">
+        <div className="glass-card p-6">
           <h3 className="text-lg font-semibold mb-4">Genres: Watched vs Liked</h3>
           <ChartWrapper config={(charts.genres_watched_vs_liked || charts.genres) as string} type="bar" />
         </div>
-        <div className="bg-bg-card rounded-xl p-6">
+        <div className="glass-card p-6">
           <h3 className="text-lg font-semibold mb-4">Runtime Distribution</h3>
           <ChartWrapper config={charts.runtime as string} type="bar" />
         </div>
@@ -55,10 +55,18 @@ function StatCard({ label, value, color }: { label: string; value: number | stri
     yellow: 'text-accent-yellow',
   }
 
+  const barColors: Record<string, string> = {
+    cyan: 'bg-accent-cyan',
+    purple: 'bg-accent-purple',
+    pink: 'bg-accent-pink',
+    yellow: 'bg-accent-yellow',
+  }
+
   return (
-    <div className="bg-bg-card rounded-xl p-6">
-      <p className="text-text-secondary text-sm mb-1">{label}</p>
+    <div className="glass-card p-6 text-center">
+      <div className={`h-1 w-12 mx-auto rounded-full mb-4 ${barColors[color]}`} />
       <p className={`text-3xl font-bold ${colorClasses[color]}`}>{value}</p>
+      <p className="text-text-secondary text-xs uppercase tracking-wider mt-2">{label}</p>
     </div>
   )
 }
