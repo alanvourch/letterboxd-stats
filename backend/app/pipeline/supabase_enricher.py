@@ -168,13 +168,15 @@ class SupabaseEnricher:
             return []
 
     def _query_supabase_ilike(self, prefix: str) -> List[Dict]:
-        """Query Supabase for titles starting with prefix (case-insensitive).
+        """Query Supabase for titles whose words match prefix words (case-insensitive).
 
-        Used as Pass 4 to catch title mismatches like:
-        - "Die Hard With a Vengeance" → "Die Hard: With a Vengeance"
-        - "Glass Onion" → "Glass Onion: A Knives Out Mystery"
+        Words are joined with wildcards so punctuation between them is ignored:
+          "mission impossible" → ilike "mission*impossible*"
+        This matches "Mission: Impossible - Ghost Protocol" even though the
+        stored title has a colon that a plain starts-with check would miss.
         """
-        pattern = f'{prefix}*'
+        # Join normalized words with * so any punctuation between them is skipped
+        pattern = '*'.join(prefix.split()) + '*'
         encoded = urllib.parse.quote(pattern, safe='*')
         url = f'{self.supabase_url}/rest/v1/movies?select=*&title=ilike.{encoded}&limit=50'
         try:
